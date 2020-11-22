@@ -147,23 +147,22 @@ func httpWS(c *gin.Context) {
 	// Initialize the object that represents their WebSocket session
 	s := NewSession()
 	s.Conn = conn
-
-	// SessionID is already filled in
 	s.UserID = userID
 	s.Username = username
 	s.Muted = muted
-	// FakeUser is already set to false
-	s.Friends = friendsMap
-	s.ReverseFriends = reverseFriendsMap
-	s.Hyphenated = hyphenated
+	s.Data.Friends = friendsMap
+	s.Data.ReverseFriends = reverseFriendsMap
+	s.Data.Hyphenated = hyphenated
+
+	websocketInit(s)
 
 	for {
 		// Read
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			logger.Error(err)
+		if _, msg, err := conn.ReadMessage(); err != nil {
+			logger.Error("Failed to read from the WebSocket session of \""+username+"\" ("+strconv.Itoa(userID)+"):", err)
+		} else {
+			fmt.Printf("%s\n", msg)
 		}
-		fmt.Printf("%s\n", msg)
 	}
 }
 

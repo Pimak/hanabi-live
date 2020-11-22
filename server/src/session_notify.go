@@ -26,10 +26,10 @@ func makeUserMessage(s *Session) *UserMessage {
 	return &UserMessage{
 		UserID:     s.UserID,
 		Name:       s.Username,
-		Status:     s.Status,
-		TableID:    s.TableID,
-		Hyphenated: s.Hyphenated,
-		Inactive:   s.Inactive,
+		Status:     s.Status(),
+		TableID:    s.TableID(),
+		Hyphenated: s.Hyphenated(),
+		Inactive:   s.Inactive(),
 	}
 }
 
@@ -45,14 +45,14 @@ func (s *Session) NotifyUserLeft(u *Session) {
 
 // NotifyUserInactive will notify someone about a user that is either
 // inactive or coming back from inactive status
-func (s *Session) NotifyUserInactive(u *Session) {
+func (s *Session) NotifyUserInactive(s2 *Session) {
 	type UserInactiveMessage struct {
 		UserID   int  `json:"userID"`
 		Inactive bool `json:"inactive"`
 	}
 	s.Emit("userInactive", &UserInactiveMessage{
-		UserID:   u.UserID,
-		Inactive: u.Inactive,
+		UserID:   s2.UserID,
+		Inactive: s2.Inactive(),
 	})
 }
 

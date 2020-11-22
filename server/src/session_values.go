@@ -125,6 +125,17 @@ func (s *Session) RateLimitAllowance() float64 {
 	return s.Data.RateLimitAllowance
 }
 
+func (s *Session) SetRateLimitAllowance(rateLimitAllowance float64) {
+	if s == nil {
+		logger.Error("The \"SetRateLimitAllowance\" method was called for a nil session.")
+		return
+	}
+
+	s.DataMutex.Lock()
+	s.Data.RateLimitAllowance = rateLimitAllowance
+	s.DataMutex.Unlock()
+}
+
 func (s *Session) RateLimitLastCheck() time.Time {
 	if s == nil {
 		logger.Error("The \"RateLimitLastCheck\" method was called for a nil session.")
@@ -134,6 +145,17 @@ func (s *Session) RateLimitLastCheck() time.Time {
 	s.DataMutex.RLock()
 	defer s.DataMutex.RUnlock()
 	return s.Data.RateLimitLastCheck
+}
+
+func (s *Session) SetRateLimitLastCheck(rateLimitLastCheck time.Time) {
+	if s == nil {
+		logger.Error("The \"SetRateLimitLastCheck\" method was called for a nil session.")
+		return
+	}
+
+	s.DataMutex.Lock()
+	s.Data.RateLimitLastCheck = rateLimitLastCheck
+	s.DataMutex.Unlock()
 }
 
 func (s *Session) Banned() bool {

@@ -279,7 +279,7 @@ func (t *Table) GetNotifySessions(excludePlayers bool) []*Session {
 				continue
 			}
 			notifyMap[p.ID] = struct{}{}
-			for userID := range p.Session.ReverseFriends {
+			for userID := range p.Session.ReverseFriends() {
 				notifyMap[userID] = struct{}{}
 			}
 		}
@@ -290,7 +290,7 @@ func (t *Table) GetNotifySessions(excludePlayers bool) []*Session {
 			continue
 		}
 		notifyMap[sp.ID] = struct{}{}
-		for userID := range sp.Session.ReverseFriends {
+		for userID := range sp.Session.ReverseFriends() {
 			notifyMap[userID] = struct{}{}
 		}
 	}

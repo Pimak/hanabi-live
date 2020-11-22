@@ -34,7 +34,7 @@ func websocketMessage(s *Session, msg []byte) {
 	commandWaitGroup.Add(1)
 	defer commandWaitGroup.Done()
 
-	if s.Banned {
+	if s.Banned() {
 		// We already banned this user, so ignore any of their remaining messages in the queue
 		return
 	}
@@ -43,10 +43,10 @@ func websocketMessage(s *Session, msg []byte) {
 		// Validate that the user is not attempting to flood the server
 		// Algorithm from: http://stackoverflow.com/questions/667508
 		now := time.Now()
-		timePassed := now.Sub(s.RateLimitLastCheck).Seconds()
-		s.RateLimitLastCheck = now
+		timePassed := now.Sub(s.RateLimitLastCheck()).Seconds()
+		s.SetRateLimitLastCheck(now)
 
-		newRateLimitAllowance := s.RateLimitAllowance + timePassed*(RateLimitRate/RateLimitPer)
+		newRateLimitAllowance := s.RateLimitAllowance() + timePassed*(RateLimitRate/RateLimitPer)
 		if newRateLimitAllowance > RateLimitRate {
 			newRateLimitAllowance = RateLimitRate
 		}
@@ -59,7 +59,7 @@ func websocketMessage(s *Session, msg []byte) {
 		}
 
 		newRateLimitAllowance--
-		s.RateLimitAllowance = newRateLimitAllowance
+		s.SetRateLimitAllowance(newRateLimitAllowance)
 	}
 
 	sentryWebsocketMessageAttachMetadata(s)
