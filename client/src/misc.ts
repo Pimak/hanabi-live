@@ -113,7 +113,6 @@ export function setBrowserAddressBarPath(newPath: string, hash?: string): void {
     // "URLSearchParams.toString()" will convert "?dev" to "?dev=", which is undesirable
     .replace(/=&/g, "&")
     .replace(/=$/, "");
-
   let path = newPath;
   if (modifiedQueryParameters.length > 0) {
     path += `?${modifiedQueryParameters}`;

@@ -6,8 +6,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	melody "gopkg.in/olahol/melody.v1"
 )
 
 type WebsocketConnectData struct {
@@ -19,13 +17,10 @@ type WebsocketConnectData struct {
 	SpectatingTableID           uint64
 }
 
-// websocketConnect is fired when a new Melody WebSocket session is established
+// websocketInit is fired when a new Melody WebSocket session is established
 // This is the third step of logging in; users will only get here if authentication was successful
-func websocketConnect(ms *melody.Session) {
-	// Turn the Melody session into a custom session
-	s := &Session{ms}
-
-	logger.Debug("Entered the \"websocketConnect()\" function for user: " + s.Username())
+func websocketInit(s *Session) {
+	logger.Debug("Entered the \"websocketConnect()\" function for user: " + s.Username)
 
 	// First, perform all the expensive database retrieval to gather the data we need
 	// We want to do this before we start locking any mutexes (to minimize the lock time)
@@ -33,20 +28,20 @@ func websocketConnect(ms *melody.Session) {
 
 	// We only want one computer to connect to one user at a time
 	// Use a dedicated mutex to prevent race conditions
-	logger.Debug("Acquiring session connection write lock for user: " + s.Username())
+	logger.Debug("Acquiring session connection write lock for user: " + s.Username)
 	sessionConnectMutex.Lock()
-	logger.Debug("Acquired session connection write lock for user: " + s.Username())
+	logger.Debug("Acquired session connection write lock for user: " + s.Username)
 	defer sessionConnectMutex.Unlock()
 
 	// Disconnect any existing connections with this username
-	logger.Debug("Acquiring sessions read lock for user: " + s.Username())
+	logger.Debug("Acquiring sessions read lock for user: " + s.Username)
 	sessionsMutex.RLock()
-	logger.Debug("Acquired sessions read lock for user: " + s.Username())
-	s2, ok := sessions[s.UserID()]
+	logger.Debug("Acquired sessions read lock for user: " + s.Username)
+	s2, ok := sessions[s.UserID]
 	sessionsMutex.RUnlock()
-	logger.Debug("Released sessions read lock for user: " + s.Username())
+	logger.Debug("Released sessions read lock for user: " + s.Username)
 	if ok {
-		logger.Info("Closing existing connection for user \"" + s.Username() + "\".")
+		logger.Info("Closing existing connection for user \"" + s.Username + "\".")
 		s2.Error("You have logged on from somewhere else, so you have been disconnected here.")
 		if err := s2.Close(); err != nil {
 			// This can occasionally fail and we don't want to report the error to Sentry
@@ -64,13 +59,13 @@ func websocketConnect(ms *melody.Session) {
 	}
 
 	// Add the connection to a session map so that we can keep track of all of the connections
-	logger.Debug("Acquiring sessions write lock for user: " + s.Username())
+	logger.Debug("Acquiring sessions write lock for user: " + s.Username)
 	sessionsMutex.Lock()
-	logger.Debug("Acquired sessions write lock for user: " + s.Username())
-	sessions[s.UserID()] = s
+	logger.Debug("Acquired sessions write lock for user: " + s.Username)
+	sessions[s.UserID] = s
 	sessionsMutex.Unlock()
-	logger.Debug("Released sessions write lock for user: " + s.Username())
-	logger.Info("User \""+s.Username()+"\" connected;", len(sessions), "user(s) now connected.")
+	logger.Debug("Released sessions write lock for user: " + s.Username)
+	logger.Info("User \""+s.Username+"\" connected;", len(sessions), "user(s) now connected.")
 
 	// Now, send some additional information to them
 	websocketConnectWelcomeMessage(s, data)
@@ -90,8 +85,8 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 	}
 
 	// Get their total number of games played from the database
-	if v, err := models.Games.GetUserNumGames(s.UserID(), true); err != nil {
-		logger.Error("Failed to get the number of games played for user \""+s.Username()+"\":", err)
+	if v, err := models.Games.GetUserNumGames(s.UserID, true); err != nil {
+		logger.Error("Failed to get the number of games played for user \""+s.Username+"\":", err)
 		s.Error(DefaultErrorMsg)
 		return data
 	} else {
@@ -99,8 +94,8 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 	}
 
 	// Get their settings from the database
-	if v, err := models.UserSettings.Get(s.UserID()); err != nil {
-		logger.Error("Failed to get the settings for user \""+s.Username()+"\":", err)
+	if v, err := models.UserSettings.Get(s.UserID); err != nil {
+		logger.Error("Failed to get the settings for user \""+s.Username+"\":", err)
 		s.Error(DefaultErrorMsg)
 		return data
 	} else {
@@ -108,8 +103,8 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 	}
 
 	// Get their friends from the database
-	if v, err := models.UserFriends.GetAllUsernames(s.UserID()); err != nil {
-		logger.Error("Failed to get the friends for user \""+s.Username()+"\":", err)
+	if v, err := models.UserFriends.GetAllUsernames(s.UserID); err != nil {
+		logger.Error("Failed to get the friends for user \""+s.Username+"\":", err)
 		s.Error(DefaultErrorMsg)
 		return data
 	} else {
@@ -118,8 +113,8 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 
 	// Get their join date from the database
 	var datetimeCreated time.Time
-	if v, err := models.Users.GetDatetimeCreated(s.UserID()); err != nil {
-		logger.Error("Failed to get the join date for user \""+s.Username()+"\":", err)
+	if v, err := models.Users.GetDatetimeCreated(s.UserID); err != nil {
+		logger.Error("Failed to get the join date for user \""+s.Username+"\":", err)
 		s.Error(DefaultErrorMsg)
 		return data
 	} else {
@@ -128,36 +123,36 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 	data.FirstTimeUser = time.Since(datetimeCreated) < 10*time.Second
 
 	// Check to see if they are currently playing in an ongoing game
-	logger.Debug("Acquiring tables read lock for user: " + s.Username())
+	logger.Debug("Acquiring tables read lock for user: " + s.Username)
 	tablesMutex.RLock()
-	logger.Debug("Acquired tables read lock for user: " + s.Username())
+	logger.Debug("Acquired tables read lock for user: " + s.Username)
 	for _, t := range tables {
 		if t.Replay {
 			continue
 		}
 
-		playerIndex := t.GetPlayerIndexFromID(s.UserID())
+		playerIndex := t.GetPlayerIndexFromID(s.UserID)
 		if playerIndex != -1 {
 			data.PlayingInOngoingGameTableID = t.ID
 			break
 		}
 	}
 	tablesMutex.RUnlock()
-	logger.Debug("Released tables read lock for user: " + s.Username())
+	logger.Debug("Released tables read lock for user: " + s.Username)
 
 	// Check to see if they are were spectating in a shared replay before they disconnected
 	// (games that they are playing in take priority over shared replays)
 	if data.PlayingInOngoingGameTableID != 0 {
-		logger.Debug("Acquiring tables read lock for user: " + s.Username())
+		logger.Debug("Acquiring tables read lock for user: " + s.Username)
 		tablesMutex.RLock()
-		logger.Debug("Acquired tables read lock for user: " + s.Username())
+		logger.Debug("Acquired tables read lock for user: " + s.Username)
 		for _, t := range tables {
 			if !t.Replay {
 				continue
 			}
 
 			for id := range t.DisconSpectators {
-				if id != s.UserID() {
+				if id != s.UserID {
 					continue
 				}
 
@@ -166,7 +161,7 @@ func websocketConnectGetData(s *Session) *WebsocketConnectData {
 			}
 		}
 		tablesMutex.RUnlock()
-		logger.Debug("Released tables read lock for user: " + s.Username())
+		logger.Debug("Released tables read lock for user: " + s.Username)
 	}
 
 	return data
@@ -194,18 +189,18 @@ func websocketConnectWelcomeMessage(s *Session, data *WebsocketConnectData) {
 	}
 	s.Emit("welcome", &WelcomeMessage{
 		// Send the user their corresponding user ID
-		UserID: s.UserID(),
+		UserID: s.UserID,
 
 		// We have to send the username back to the client because they may
 		// have logged in with the wrong case, and the client needs to know
 		// their exact username or various bugs will occur
-		Username: s.Username(),
+		Username: s.Username,
 
 		// We also send the total amount of games that they have played
 		// (to be shown in the nav bar on the history page)
 		TotalGames: data.TotalGames,
 
-		Muted:         s.Muted(),          // Some users are muted (as a resulting of spamming, etc.)
+		Muted:         s.Muted,            // Some users are muted (as a resulting of spamming, etc.)
 		FirstTimeUser: data.FirstTimeUser, // First time users get a quick tutorial
 
 		// The various client settings are stored server-side so that users can seamlessly
@@ -233,14 +228,14 @@ func websocketConnectWelcomeMessage(s *Session, data *WebsocketConnectData) {
 // (this is much more performant than sending an individual "user" message for every user)
 func websocketConnectUserList(s *Session) {
 	userMessageList := make([]*UserMessage, 0)
-	logger.Debug("Acquiring sessions read lock for user: " + s.Username())
+	logger.Debug("Acquiring sessions read lock for user: " + s.Username)
 	sessionsMutex.RLock()
-	logger.Debug("Acquired sessions read lock for user: " + s.Username())
+	logger.Debug("Acquired sessions read lock for user: " + s.Username)
 	for _, s2 := range sessions {
 		userMessageList = append(userMessageList, makeUserMessage(s2))
 	}
 	sessionsMutex.RUnlock()
-	logger.Debug("Released sessions read lock for user: " + s.Username())
+	logger.Debug("Released sessions read lock for user: " + s.Username)
 	s.Emit("userList", userMessageList)
 }
 
@@ -248,16 +243,16 @@ func websocketConnectUserList(s *Session) {
 // (this is much more performant than sending an individual "table" message for every table)
 func websocketConnectTableList(s *Session) {
 	tableMessageList := make([]*TableMessage, 0)
-	logger.Debug("Acquiring tables read lock for user: " + s.Username())
+	logger.Debug("Acquiring tables read lock for user: " + s.Username)
 	tablesMutex.RLock()
-	logger.Debug("Acquired tables read lock for user: " + s.Username())
+	logger.Debug("Acquired tables read lock for user: " + s.Username)
 	for _, t := range tables {
 		if t.Visible {
 			tableMessageList = append(tableMessageList, makeTableMessage(s, t))
 		}
 	}
 	tablesMutex.RUnlock()
-	logger.Debug("Released tables read lock for user: " + s.Username())
+	logger.Debug("Released tables read lock for user: " + s.Username)
 	s.Emit("tableList", tableMessageList)
 }
 
@@ -310,8 +305,8 @@ func websocketConnectChat(s *Session) {
 // (but only the last 10 games to prevent wasted bandwidth)
 func websocketConnectHistory(s *Session) {
 	var gameIDs []int
-	if v, err := models.Games.GetGameIDsUser(s.UserID(), 0, 10); err != nil {
-		logger.Error("Failed to get the game IDs for user \""+s.Username()+"\":", err)
+	if v, err := models.Games.GetGameIDsUser(s.UserID, 0, 10); err != nil {
+		logger.Error("Failed to get the game IDs for user \""+s.Username+"\":", err)
 		return
 	} else {
 		gameIDs = v
@@ -334,8 +329,8 @@ func websocketConnectHistoryFriends(s *Session, friends []string) {
 	}
 
 	var gameIDs []int
-	if v, err := models.Games.GetGameIDsFriends(s.UserID(), s.Friends(), 0, 10); err != nil {
-		logger.Error("Failed to get the friend game IDs for user \""+s.Username()+"\":", err)
+	if v, err := models.Games.GetGameIDsFriends(s.UserID, s.Friends(), 0, 10); err != nil {
+		logger.Error("Failed to get the friend game IDs for user \""+s.Username+"\":", err)
 		return
 	} else {
 		gameIDs = v
